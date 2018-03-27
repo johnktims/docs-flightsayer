@@ -17,7 +17,7 @@ where `api-token` is the API token you have been provided (contact `info@flights
 
 To see the data that is pushed to the callback URL provided, check out `FlightStatusUpdate` in the `Data Structures` section.
 
-### For info on Check out the pull version of the flight status API [here](flight_status.md)
+### Check out the pull version of the flight status API [here](flight_status.md)
  
 # Subscriptions [/subscriptions]
 
@@ -49,6 +49,22 @@ Retrieve all current flight subscriptions
                     {
                       "itinerary_id": "9bb348b3-d567-4392-818f-e19b7ad7fbf2",
                       "flight_ids": ["AS22SEAORD1705021910", "B6112ORDBOS1705030035"],
+                      "pending_flights": [
+                                            {
+                                                "carrier": "AA",
+                                                "flight_number": "1234",
+                                                "date": "2017-08-30",
+                                                "origin": "LAX",
+                                                "destination": "DEN"
+                                            },
+                                            {
+                                                "carrier": "WN",
+                                                "flight_number": "4567",
+                                                "date": "2017-09-01",
+                                                "origin": "DEN",
+                                                "destination": "BOS"
+                                            }
+                                        ],
                       "target": "http://requestb.in/wr9k2hwr",
                       "booking_reference": "78XNKDS",
                       "created": "2017-05-02T16:26:02.883037",
@@ -58,7 +74,13 @@ Retrieve all current flight subscriptions
                 }
 
 ### Create a subscription for the specified itinerary [POST /subscriptions/]
-To subscribe to push notifications for an itinerary, first obtain valid flight IDs for the flight and a target URL. Check out `FlightStatusUpdate` in the `Data Structures` section for information about what the data you will then receive via callback.
+To subscribe to push notifications for an itinerary, first obtain valid flight IDs for the flight and a target URL. Check out `FlightStatusUpdate` in the `Data Structures` section for information about the data you will then receive via callback.
+
+It's also possible to subscribe to notifications for flights further than 80 days out which don't yet exist in our schedule. To do so, include the `flights` attribute in the body of the request with the format described under `Flight` in the `Data Structures` section. Either the `flight_ids` or `flights` attribute is required. Combining both in a single request is not supported.
+
+The `flights` attribute may also be used to subscribe to notifications for current flights without supplying the `FlightId`. Any flight search parameters that resolve to a scheduled flight will become active immediately and ones that do not will become pending flights. These are reflected as `flight_ids` and `pending_flights` in the response, respectively.
+
+The `origin` and `destination` fields are optional, but the combination of search parameters must resolve to a unique flight. If it does not, no subscription will be created and the response will describe the error.
 
 + Request (application/json)
 
@@ -68,14 +90,31 @@ To subscribe to push notifications for an itinerary, first obtain valid flight I
             
     + Attributes
      
-        + flight_ids (array[FlightId], required) - an array of flight IDs that represent a single itinerary
+        + flight_ids (array[FlightId], optional) - an array of flight IDs that represent a single itinerary
+        + flights (array[Flight], optional) - an array of Flights containing flight search parameters
         + target (string, required) - url to which POST requests indicating change to flight status will be sent.
         + booking_reference (string, optional) - information to attach to this flight such as PNR number.
 
     + Body
 
             {
-                "flight_ids": ["B6112ORDBOS1705030035", "AS22SEAORD1705021910"]
+                "flight_ids": ["B6112ORDBOS1705030035", "AS22SEAORD1705021910"],
+                "flights": [
+                                {
+                                    "carrier": "AA",
+                                    "flight_number": "1234",
+                                    "date": "2017-08-30",
+                                    "origin": "LAX",
+                                    "destination": "DEN"
+                                },
+                                {
+                                    "carrier": "WN",
+                                    "flight_number": "4567",
+                                    "date": "2017-09-01",
+                                    "origin": "DEN",
+                                    "destination": "BOS"
+                                }
+                            ],
                 "target": "http://status.concernedpassenger.com",
                 "booking_reference: "78XNKDL"
             }
@@ -90,6 +129,22 @@ New subscription created.
             {
                 "itinerary_id": "9bb348b3-d567-4392-818f-e19b7ad7fbf2",
                 "flight_ids": ["AS22SEAORD1705021910", "B6112ORDBOS1705030035"],
+                "pending_flights": [
+                                            {
+                                                "carrier": "AA",
+                                                "flight_number": "1234",
+                                                "date": "2017-08-30",
+                                                "origin": "LAX",
+                                                "destination": "DEN"
+                                            },
+                                            {
+                                                "carrier": "WN",
+                                                "flight_number": "4567",
+                                                "date": "2017-09-01",
+                                                "origin": "DEN",
+                                                "destination": "BOS"
+                                            }
+                                        ],
                 "target": "http://requestb.in/wr9k2hwr",
                 "booking_reference": "78XNKDL",
                 "created": "2017-05-02T16:26:02.883037",
@@ -144,11 +199,21 @@ Delete the subscription for the specified itinerary.
 A flight id uniquely represents a flight, and takes the form: [IATA carrier code][flight number][departure airport][arrival airport][scheduled departure time as YYMMDDHHMM in UTC time].
 For example: `UA576BOSSFO1606092145`
 
+## Flight (object)
+Flight contains parameters used to search for a single flight when flight id is not available. This may be an upcoming flight which resolves to a FlightId or a flight not yet scheduled, in which case the parameters will be stored as [pending_flights] and resolve to a flight id once the scheduled flight exists.
++ Attributes
+    + carrier (string, required) - two character IATA carrier code
+    + flight_number (integer, required) - integer flight number
+    + date (string, required) - local departure date in the format YYYY-MM-DD
+    + origin (string, optional) - three character departure airport code, for example LAX
+    + destination (string, optional) - three character arrival airport code
+
 ## FlightSubscription (object)
 A subscription for flight status alerts
 + Attributes
     + itinerary_id (string, required) - uuid such as `cabb3527-3c77-488e-8306-f8bf38a904ef` identifying the itinerary
-    + flight_ids (array[FlightId], required) - array of flight IDs representing the flights in this itinerary
+    + flight_ids (array[FlightId], optional) - array of flight IDs representing the flights in this itinerary
+    + pending_flights (array[Flight], optional) - array of flights containing parameters representing flights that don't yet exist in the schedule
     + target (string, required) - target URL where updates to flight status are sent as a POST request
     + booking_reference (string, optional) - additional information to be stored along with this itinerary, such as PNR
     + created (timestamp, required) - timestamp at which the subscription was created
