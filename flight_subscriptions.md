@@ -116,7 +116,7 @@ The `origin` and `destination` fields are optional, but the combination of searc
                                 }
                             ],
                 "target": "http://status.concernedpassenger.com",
-                "booking_reference: "78XNKDL"
+                "booking_reference": "78XNKDL"
             }
 
 + Response 201 (application/json)
